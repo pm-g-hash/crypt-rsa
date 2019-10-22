@@ -3,6 +3,10 @@
 $public_key_file = 'public.pem';
 $private_key_file = 'private.pem';
 
+// При первом запуске создадим ключи
+if(!file_exists('private.pem'))
+      createCert('priv');
+
 
 // Работаем с сообщением
 if(isset($_GET['crypttext']) && !empty($_GET['crypttext'])){
@@ -49,8 +53,6 @@ if(isset($_GET['message']) && !empty($_GET['message'])){
 
 //echo chunk_split( file_get_contents( $public_key_file) );
 echo  file_get_contents( $public_key_file) ;
-
-
 
 
 
