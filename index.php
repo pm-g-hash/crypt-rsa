@@ -1,37 +1,54 @@
 <?php
 
-$public_key = 'public.pem';
-$private_key = 'private.pem';
+$public_key_file = 'public.pem';
+$private_key_file = 'private.pem';
 
-	// Добавляем
-  	$plain = "PHP is my secret love.";	
-	$publickey = openssl_get_publickey( is_file($public_key) ? file_get_contents($public_key) : createCert('public') );
+
+// Работаем с сообщением
+if(isset($_GET['crypttext']) && !empty($_GET['crypttext'])){
+
+   $crypttext = $_GET['crypttext'];
+
+   // Извлекаем
+   $pk  = openssl_get_privatekey( is_file($private_key_file) ? file_get_contents($private_key_file) : createCert('priv') ) ;
+   openssl_private_decrypt( $crypttext, $out, $pk);
+
+   echo "\r\n----------------";
+   echo $out;
+   echo "---------------------\r\n";
+
+}
+
+
+
+if(isset($_GET['message']) && !empty($_GET['message'])){
+   // Добавляем
+
+   //$plain = "PHP is my secret love.";	
+   $plain = $_GET['message'];   
+
+   $publickey = openssl_get_publickey( is_file($public_key_file) ? file_get_contents($public_key_file) : createCert('public') );
      	
 
-      // Encrypt
-      //openssl_seal($plain, $crypttext, $ekey, array($publickey));
-		//$ekey = $ekey[0];
-      openssl_public_encrypt($plain, $crypttext, $publickey);
-      // Криптованный текст
-      echo chunk_split(base64_encode($crypttext));
-      // освобождаем ресурсы ключей
-      openssl_free_key($publickey);
-     
+   // Encrypt
+   openssl_public_encrypt($plain, $crypttext, $publickey);
+   // Криптованный текст
+   echo chunk_split(base64_encode($crypttext));
+   // освобождаем ресурсы ключей
+   openssl_free_key($publickey);
+}     
    	  
+?>
 
+<form action="" method="GET"> 
+   <p><input type="text" name="crypttext"> crypttext</p>
+   <p><input type="text" name="message"> message</p>
+</form>
 
+<?php
 
-
-// Извлекаем
-$pk  = openssl_get_privatekey( is_file($private_key) ? file_get_contents($private_key) : createCert('priv') ) ;
-openssl_private_decrypt( $crypttext, $out, $pk);
-
-echo "\r\n----------------";
-echo $out;
-echo "---------------------\r\n";
-
-//echo chunk_split( file_get_contents( $public_key) );
-echo  file_get_contents( $public_key) ;
+//echo chunk_split( file_get_contents( $public_key_file) );
+echo  file_get_contents( $public_key_file) ;
 
 
 
