@@ -1,65 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+<style type="text/css">
+	.return {
+		width:50%; border: 1px dashed; padding: 1em;
+	}
+</style>
+</head>
+<body>
 <?php
 
 $public_key_file = 'public.pem';
 $private_key_file = 'private.pem';
 
+// При первом запуске создадим ключи
+if(!file_exists('private.pem'))
+      createCert('priv');
 
-// Работаем с сообщением
+
+
+
+
+// DECRIPT -  Работаем с сообщением - расшифровываем
 if(isset($_GET['crypttext']) && !empty($_GET['crypttext'])){
 
-   $crypttext = $_GET['crypttext'];
-
+   $crypttext = $_GET['crypttext'] ;
+   
+	// Ставим права для чтения ключа (лучше создавать на уровень выше )   
+   exec("chmod 400 private.pem");
    // Извлекаем
-   $pk  = openssl_get_privatekey( is_file($private_key_file) ? file_get_contents($private_key_file) : createCert('priv') ) ;
-   openssl_private_decrypt( $crypttext, $out, $pk);
+   $pk  = openssl_get_privatekey(  file_get_contents($private_key_file) ) ;
+   exec( "chmod 000 private.pem");
 
-   echo "\r\n----------------";
+   
+   if(openssl_private_decrypt( base64_decode( $crypttext) , $out, $pk) ){
+   echo 'Расшифровано приватным ключом<div class="return">';
    echo $out;
-   echo "---------------------\r\n";
+   echo '</div>';
+   }
+   else
+      echo "Не удалось расшифровать";
 
+   openssl_free_key($pk);
 }
 
 
 
+
+
+
+// ENCRYPT
 if(isset($_GET['message']) && !empty($_GET['message'])){
-   // Добавляем
-
-   //$plain = "PHP is my secret love.";	
-   $plain = $_GET['message'];   
-
-   $publickey = openssl_get_publickey( is_file($public_key_file) ? file_get_contents($public_key_file) : createCert('public') );
+     // Добавляем
+	 $plain = $_GET['message'];   
+     $publickey = openssl_get_publickey(  file_get_contents($public_key_file)  );
      	
 
    // Encrypt
-   openssl_public_encrypt($plain, $crypttext, $publickey);
+   	openssl_public_encrypt($plain, $crypttext, $publickey);
    // Криптованный текст
-   echo chunk_split(base64_encode($crypttext));
+     echo 'Зашифрованное публичным ключом <div class="return">'. chunk_split( base64_encode($crypttext), 64 ).'</div>' ;
    // освобождаем ресурсы ключей
    openssl_free_key($publickey);
 }     
-   	  
-?>
-
-<form action="" method="GET"> 
-   <p><input type="text" name="crypttext"> crypttext</p>
-   <p><input type="text" name="message"> message</p>
-</form>
-
-<?php
-
-//echo chunk_split( file_get_contents( $public_key_file) );
-echo  file_get_contents( $public_key_file) ;
 
 
-
-
-
-
-
-
-
-
-
+// Создаем ключи
 function createCert($type=""){
 	
 	if($type == 'priv'){
@@ -67,6 +74,8 @@ function createCert($type=""){
 		exec('openssl genrsa -out private.pem 2048');
 		exec('openssl rsa -in private.pem -out public.pem -outform PEM -pubout ');
 		Echo 'Сгенерилась новая пара ключей, запускай заново';
+      exec( "chmod 000 private.pem");
+
 		return file_get_contents('private.pem');
 	}
 	elseif($type == 'public'){
@@ -80,73 +89,49 @@ function createCert($type=""){
 	}
 }
 
-
-
-
-class OpenSSL {
-  
-   public $privatekey;
-   public $publickey;
-   public $csr;
-   public $crypttext;
-   public $ekey;
-   
-   public function encrypt($plain) {
-     
-      // Turn public key into resource
-      $publickey = openssl_get_publickey(is_file(OPEN_SSL_PUBKEY_PATH)? file_get_contents(OPEN_SSL_PUBKEY_PATH) : OPEN_SSL_PUBKEY_PATH);
-     
-      // Encrypt
-      openssl_seal($plain, $crypttext, $ekey, array($publickey));
-      openssl_free_key($publickey);
-     
-      // Set values
-      $this->crypttext = $crypttext;
-      $this->ekey = $ekey[0];
-   }
-
-   public function decrypt($crypt, $privatekey, $ekey="") {
-  
-      // Turn private key into resource
-     	 $privatekey = openssl_get_privatekey((is_file($privatekey)? file_get_contents($privatekey) : $privatekey), OPEN_SSL_PASSPHRASE);
-     
-      // Decrypt
-      openssl_open($crypt, $plaintext, $ekey, $privatekey);
-      openssl_free_key($privatekey);
-     
-      // Return value
-      return $plaintext;
-   }
-
-   public function do_csr(
-   $countryName = "UK",
-   $stateOrProvinceName = "London",
-   $localityName = "Blah",
-   $organizationName = "Blah1",
-   $organizationalUnitName = "Blah2",
-   $commonName = "Joe Bloggs",
-   $emailAddress = "openssl@domain.com"
-   ) {        
-      $dn = array(
-         "countryName" => $countryName,
-         "stateOrProvinceName" => $stateOrProvinceName,
-         "localityName" => $localityName,
-         "organizationName" => $organizationName,
-         "organizationalUnitName" => $organizationalUnitName,
-         "commonName" => $commonName,
-         "emailAddress" => $emailAddress
-         );
-      $config = array(
-         "config" => OPEN_SSL_CONF_PATH
-         );
-      $privkey = openssl_pkey_new();
-      $csr = openssl_csr_new($dn, $privkey, $config);
-      $sscert = openssl_csr_sign($csr, null, $privkey, OPEN_SSL_CERT_DAYS_VALID, $config);
-      openssl_x509_export($sscert, $this->publickey);
-      openssl_pkey_export($privkey, $this->privatekey, OPEN_SSL_PASSPHRASE, $config);
-      openssl_csr_export($csr, $this->csr);
-   }
-  
-}
-
+   	  
 ?>
+
+<h1><a href=".">очистить</a> | <a href="sealed.php"  target="_blank">Запечатать своим ключом</a></h1>
+
+<h3>Запечатать</h3>
+<form action="" method="GET"> 
+    <p><input type="text" name="message"> message</p>
+   <input type="submit" name="" value="Запечатать">
+</form>
+
+<hr>
+
+<h3>Распечатать</h3>
+<form action="" method="GET"> 
+   <p><input type="text" name="crypttext"> crypttext</p>
+   <input type="submit" name="" value="Распечатать">
+</form>
+<hr>
+<a href="public.pem">Публичный ключ</a>
+<hr>
+<div class="return">
+<?php 
+// Выводим пуьличный ключ в удобоваримом виде
+$key = file_get_contents( $public_key_file );
+$key = str_replace([
+    '-----BEGIN PUBLIC KEY-----',
+    '----END PUBLIC KEY-----',
+    "\r\n",
+    "\n",
+], [
+    '',
+    '',
+    "\n",
+    ''
+], $key);
+
+
+echo $key = "-----BEGIN PUBLIC KEY-----<br>" . wordwrap($key, 64, "<br>", true) . "<br>-----END PUBLIC KEY-----";
+//echo $key = "-----BEGIN PUBLIC KEY-----\n" . wordwrap($key, 64, "\n", true) . "\n-----END PUBLIC KEY-----";
+
+?></div>
+
+
+</body>
+</html>
